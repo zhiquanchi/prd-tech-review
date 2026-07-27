@@ -4,25 +4,69 @@
 
 ---
 
-## 强制：使用 AskUserQuestion 选择框
+## 强制：点选 UI（Claude Code + Codex 双端）
 
-在 **Claude Code** 中，阶段 2 **必须**调用内置工具 **`AskUserQuestion`** 弹出可点选 UI（与 Plan 模式同类选择框）。
+阶段 2 **必须**调用当前环境的交互选择题工具，弹出可点选 UI。
+
+| 环境 | 工具名 | 单次题量 | 选项数 |
+|------|--------|----------|--------|
+| Claude Code | `AskUserQuestion` | 1–4 | 2–4 |
+| Codex | `request_user_input` | 1–3（prefer 1） | 2–3 |
+| 皆无 | Markdown 降级 | ≤8 | 2–4 + 其他 |
 
 | 规则 | 说明 |
 |------|------|
-| 必须调用工具 | 写「使用 AskUserQuestion」，不要只写「向用户提问」 |
-| 禁止纯文字 A/B/C | 禁止用 Markdown 列表让 PM 打字回复代替选择框 |
-| 等答案再继续 | 未收到点选结果前，不得进入阶段 3 / 写代码 |
-| 推荐项第一 | `options[0]` 为技术推荐，label 可带 ✅，description 写取舍 |
-| 单次题量 | 每次 `AskUserQuestion` 建议 1–4 题 |
-| 降级 | 仅当环境无该工具时，才用文末 Markdown 格式，并告知 PM |
+| 先判工具再调用 | 有 `request_user_input` → Codex；否则有 `AskUserQuestion` → Claude；皆无 → 降级 |
+| 禁止纯文字 A/B/C | 有点选工具时禁止 Markdown 列表代替 |
+| 等答案再继续 | 未收到点选结果前不得进入阶段 3 |
+| 推荐项第一 | `options[0]` 为技术推荐；Claude 可用 ✅；Codex label 后缀 ` (Recommended)` |
+| 不要手写 Other | 两端客户端都会提供自定义输入 |
+| 降级 | 仅当环境无点选工具时用文末 Markdown，并告知 PM |
 
-**AskUserQuestion 字段建议：**
+### Claude Code — `AskUserQuestion`
 
-- `question`：场景化问题（可含 1 句技术说明 + 简短 PRD 引用）
+- `question`：场景化问题（可含 1 句技术说明 + 短 PRD 引用）
 - `options[].label`：短选项名
-- `options[].description`：该选项意味着什么（成本/体验/风险）
-- `multi_select`：仅多选补充类问题为 true
+- `options[].description`：取舍（成本/体验/风险）
+- `multi_select`：仅多选补充类为 true
+
+### Codex — `request_user_input`
+
+```json
+{
+  "questions": [
+    {
+      "id": "d6_coupon_expired",
+      "header": "异常-过期",
+      "question": "用户选了券但提交订单时券刚好过期，系统应如何处理？",
+      "options": [
+        {
+          "label": "取消选中并按原价 (Recommended)",
+          "description": "提示已过期，用户可继续下单，体验与资损风险平衡"
+        },
+        {
+          "label": "阻止下单强制重选",
+          "description": "更安全但摩擦更大"
+        },
+        {
+          "label": "仍使用该券后端兜底",
+          "description": "可能产生资损，不推荐"
+        }
+      ]
+    }
+  ]
+}
+```
+
+| 字段 | 规则 |
+|------|------|
+| `id` | snake_case，映射回答 |
+| `header` | **≤12 字符** |
+| `question` | 单句场景化问题 |
+| `options` | **2–3** 个，label + description；**禁止**含 Other |
+| 推荐项 | 第一项，label 后缀 ` (Recommended)` |
+| `autoResolutionMs` | 可选 60000–240000；**阻断题不要设** |
+| 非交互 | `codex exec` 等无此工具 → Markdown 或说明跳过 |
 
 ---
 
@@ -35,7 +79,7 @@
         ↓
 按维度分组生成选择题
         ↓
-  AskUserQuestion 弹出选择框
+  AskUserQuestion 或 request_user_input 弹出选择框
         ↓
    PM 逐组点选
         ↓
@@ -74,7 +118,7 @@
 
 ### 3. 问题分组策略
 
-问题按**维度**分组。用 `AskUserQuestion` 时每轮 1–4 题；仅降级 Markdown 时单轮可到 8 题。分组顺序：
+问题按**维度**分组。Claude `AskUserQuestion` 每轮 1–4 题；Codex `request_user_input` 每轮 1–3 题（prefer 1）；仅降级 Markdown 时单轮可到 8 题。分组顺序：
 
 | 优先级 | 维度 | 原因 |
 |--------|------|------|
@@ -323,16 +367,16 @@ Q: 数据实体之间的关系图（ER 图）将如何提供？
 | 完善 PRD（只有少量缺口） | 5-15 题 | 1-2 轮 |
 
 **控制原则：**
-- AskUserQuestion 单次不超过 4 题（避免表单过长）；Markdown 降级时单轮不超过 8 题
+- Claude 单次 ≤4 题；Codex 单次 ≤3 题；Markdown 降级单轮 ≤8 题
 - 阻断级问题优先问完
-- 同一维度的多个问题合并为一道多选题（如"以下 5 个异常场景，请逐一选择处理方式"）
+- 同一维度的多个问题合并为一道多选题（如"以下 5 个异常场景，请逐一选择处理方式"）；Codex 无 multi_select 时拆成多题或单题多选项说明
 - 如果某维度审查无问题，跳过该维度，不生成空问题
 
 ---
 
 ## 问答输出格式
 
-### 主路径：AskUserQuestion（必须）
+### 主路径 A：Claude Code `AskUserQuestion`（必须）
 
 每轮调用 `AskUserQuestion`，例如一题：
 
@@ -344,7 +388,37 @@ Q: 数据实体之间的关系图（ER 图）将如何提供？
   3. label `在本次范围，只做复制链接` — description `最小可用分享能力`
 - 等待点选结果后再问下一题/下一轮
 
-### 降级路径：Markdown（仅无 AskUserQuestion 时）
+### 主路径 B：Codex `request_user_input`（必须）
+
+```json
+{
+  "questions": [
+    {
+      "id": "d1_share_scope",
+      "header": "范围-分享",
+      "question": "「券分享给好友」是否在本次开发范围内？",
+      "options": [
+        {
+          "label": "延后 V2 (Recommended)",
+          "description": "当前架构预留接口，避免范围蔓延"
+        },
+        {
+          "label": "本次完整开发",
+          "description": "含微信/朋友圈/复制链接，工期更长"
+        },
+        {
+          "label": "仅复制链接",
+          "description": "最小可用分享能力"
+        }
+      ]
+    }
+  ]
+}
+```
+
+等待点选结果后再问下一题/下一轮。阻断题不要设 `autoResolutionMs`。
+
+### 降级路径：Markdown（仅两端点选工具都不可用时）
 
 ```markdown
 ## 第 X 轮 / 共 Y 轮 — 维度名称

@@ -76,41 +76,63 @@ description: >
 
 审查报告交付后，**自动进入交互式问答阶段**。针对审查中发现的每个"阻断"和"重要"问题，生成对应的选择题，引导 PM 逐组作答。详细指南见 `references/qa-generation-guide.md`。
 
-#### 强制规则：必须使用 AskUserQuestion
+#### 强制规则：必须用点选 UI 提问（双端）
 
-阶段 2 **必须**通过 Claude Code 内置工具 **`AskUserQuestion`** 弹出可点选的选择题 UI（与 Plan 模式同类选择框）。
+阶段 2 **必须**调用当前运行环境的**交互选择题工具**弹出可点选 UI，禁止默认用纯 Markdown A/B/C。
 
-1. **禁止**用纯 Markdown 列表（A/B/C）或纯文字让 PM 打字回复代替选择框。
-2. **禁止**在未收到 `AskUserQuestion` 返回结果前进入阶段 3 或写代码。
-3. 每题 2–4 个互斥选项；推荐项放第一并在 label/description 中标明；取舍写在选项 description。
-4. 系统通常自带 “Other” 自定义输入，无需在选项里再塞“其他”除非需要强调。
-5. 单轮调用 `AskUserQuestion` 时题量建议 ≤ 4（避免一次表单过长）；多题可分多次调用。
-6. 若当前环境暂无 `AskUserQuestion`（非 Claude Code / 工具不可用），才降级为 Markdown 选择题，并明确告知 PM。
+| 运行环境 | 点选工具 | 单次题量 | 选项数 | 说明 |
+|----------|----------|----------|--------|------|
+| **Claude Code** | `AskUserQuestion` | 1–4 题 | 2–4 | Plan 模式同类选择框；可 `multi_select` |
+| **Codex** | `request_user_input` | **1–3 题**（prefer 1） | **2–3** | TUI 底部 tab 问卷；客户端自动加 Other |
+| **其他 / 无工具** | Markdown 降级 | ≤8 题 | 2–4 + 其他 | 明确告知 PM 已降级 |
+
+**运行时选择（必须先判断再调用）：**
+
+1. 若可用工具列表里有 **`request_user_input`** → 走 Codex 路径。
+2. 否则若有 **`AskUserQuestion`** → 走 Claude Code 路径。
+3. 两者皆无 → Markdown 降级，并告知用户。
+
+**通用强制规则：**
+
+1. **禁止**用纯 Markdown 列表或纯文字让 PM 打字回复代替点选 UI（有工具时）。
+2. **禁止**在未收到点选返回结果前进入阶段 3 或写代码。
+3. 选项互斥；**推荐项放第一**；取舍写在 `description`。
+4. **不要**在 options 里再塞 “Other / 其他”——两端客户端都会提供自定义输入。
+5. 阻断级问题优先；告知 PM 当前轮次进度。
+
+**Codex `request_user_input` 专用约束（来自工具 schema）：**
+
+- 每题必填：`id`（snake_case）、`header`（**≤12 字符**）、`question`、`options`（非空，2–3 个）。
+- 推荐项 label 后缀 ` (Recommended)`（Codex 规范写法）。
+- **不要**传 `isOther` / 手写 Other 选项（handler 会自动 `is_other=true`）。
+- 阻断/必须澄清的题：**不要**设 `autoResolutionMs`（避免未作答就自动跳过）。
+- 非阻断补充题可设 `autoResolutionMs`：60000–240000 ms。
+- `codex exec` / 非交互模式无此工具 → 走 Markdown 或跳过阶段 2 并说明原因。
 
 ```
 步骤 11：将审查问题转化为选择题（每个阻断/重要问题 → 一道选择题）
-         - 每题提供 2-4 个具体选项
+         - 每题提供 2-3（Codex）或 2-4（Claude）个具体选项
          - 每题标注技术团队的推荐选项
          - 每题包含技术说明，解释为什么需要这个信息
-步骤 12：按维度分组，分轮提问（每轮用 AskUserQuestion 弹出选择框）
+步骤 12：按维度分组，分轮提问（每轮用点选工具弹出选择框）
          - 第 1 轮：D1 范围 + D2 功能完整性（先确认"做什么"）
          - 第 2 轮：D8 数据模型 + D9 业务规则（数据和规则是骨架）
          - 第 3 轮：D6 边界与异常 + D7 歧义（明确边界）
          - 第 4 轮：D3 非功能性 + D4 可行性 + D10 风险（约束和风险）
          - 第 5 轮：D11-D17 配套产物（原型/图表相关决策）
-         - 每轮不超过 4 题（AskUserQuestion 单次调用），告知 PM 进度
-步骤 13：调用 AskUserQuestion → 等待 PM 点选 → 记录每个回答
+         - Codex 单次 ≤3 题；Claude 单次 ≤4 题；告知 PM 进度
+步骤 13：调用 AskUserQuestion 或 request_user_input → 等待 PM 点选 → 记录每个回答
 步骤 14：所有轮次完成后，整理回答记录表
 ```
 
 **问答原则：**
 
-- **走选择框，不走纯文字。** 一律 `AskUserQuestion`，出现 Plan 模式同类 UI。
+- **走选择框，不走纯文字。** Claude → `AskUserQuestion`；Codex → `request_user_input`。
 - **选项即决策。** 每个选项代表一个不同的产品设计决策，不是对错之分，而是取舍之分。
-- **有推荐。** 技术团队基于工程考量推荐的选项排第一位并标注 ✅。
+- **有推荐。** 技术团队基于工程考量推荐的选项排第一位并标注 ✅ / `(Recommended)`。
 - **含取舍说明。** 每个选项标注它意味着什么（开发成本、用户体验、灵活性等）。
 - **场景化提问。** 不问"你的数据模型是什么"——问"优惠券系统需要记录哪些信息？以下是技术团队建议的方案，你倾向哪个？"
-- **控制节奏。** 单轮不超过 4 题，避免 PM 疲劳。阻断级问题优先问完。
+- **控制节奏。** 单轮题量遵守上表；阻断级问题优先问完。
 
 ### 阶段 3：PRD 重生成
 
@@ -230,20 +252,58 @@ PRD 是否提供了 ER 实体关系图？PRD 数据实体表中的所有实体�
 
 ## 阶段 2 输出：交互问答
 
-详细指南见 `references/qa-generation-guide.md`。
+详细指南见 `references/qa-generation-guide.md`。勿默认输出 Markdown A/B/C 让用户打字。
 
-**主路径（Claude Code）：** 每轮通过 **`AskUserQuestion`** 弹出选择框，勿输出 Markdown A/B/C 让用户打字。
+### A. Claude Code — `AskUserQuestion`
 
-调用时建议字段映射：
+| 字段 | 填写内容 |
+|------|----------|
+| `question` | 场景化问题（可含 1 句技术说明 / 短 PRD 引用） |
+| `options[].label` | 短选项名；推荐项第一，可带 ✅ |
+| `options[].description` | 取舍说明（成本 / 体验 / 风险） |
+| `multi_select` | 仅「可多选补充项」类为 true |
 
-| AskUserQuestion 字段 | 填写内容 |
-|----------------------|----------|
-| `question` | 场景化问题标题（可含简短技术说明/PRD 引用） |
-| `options[].label` | 简短选项名；推荐项放第一，可带 ✅ |
-| `options[].description` | 取舍说明（开发成本、体验、风险） |
-| `multi_select` | 仅当「可多选补充项」类问题时为 true |
+### B. Codex — `request_user_input`
 
-**降级路径（无 AskUserQuestion 时）** 才使用以下 Markdown 格式：
+概念与 AskUserQuestion 等价，字段不同：
+
+```json
+{
+  "questions": [
+    {
+      "id": "d1_share_scope",
+      "header": "范围-分享",
+      "question": "「券分享给好友」是否在本次开发范围内？（PRD 提到分享但未写清）",
+      "options": [
+        {
+          "label": "延后 V2 (Recommended)",
+          "description": "本次预留接口与按钮位，避免范围蔓延"
+        },
+        {
+          "label": "本次完整开发",
+          "description": "含微信/朋友圈/复制链接，工期更长"
+        },
+        {
+          "label": "仅复制链接",
+          "description": "最小可用分享能力"
+        }
+      ]
+    }
+  ]
+}
+```
+
+| 字段 | 规则 |
+|------|------|
+| `questions` | 1–3 题；prefer 1 |
+| `id` | snake_case，用于映射回答 |
+| `header` | **≤12 字符**，UI tab 短标签 |
+| `question` | 单句场景化问题 |
+| `options` | **2–3** 个；label + description；**禁止**手写 Other |
+| 推荐项 | 放第一，label 后缀 ` (Recommended)` |
+| `autoResolutionMs` | 可选 60000–240000；**阻断题省略** |
+
+### C. 降级路径（两端工具都不可用）
 
 ```markdown
 ## 第 X 轮 / 共 Y 轮 — [维度名称]
@@ -292,11 +352,11 @@ PM 回答收集完成后，整理为结构化回答记录表，作为阶段 3 �
 
 ## 问答原则
 
-- **必须用 AskUserQuestion 弹出选择框。** 禁止默认用纯文字 A/B/C 代替（无该工具时才降级）。
+- **必须用点选 UI。** Claude Code → `AskUserQuestion`；Codex → `request_user_input`；皆无才 Markdown 降级。
 - **选项即决策，不是对错。** 每个选项代表一个产品设计取舍，PM 选哪个都"对"——关键是明确选了哪个。
 - **有技术推荐。** 每题标注技术团队推荐的选项，但最终决策权在 PM。
 - **让 PM 思考，不是替 PM 思考。** 问题引导 PM 考虑他没想到的场景，而不是替他做决定。
-- **一次不要太多。** 单轮 AskUserQuestion 不超过 4 题，让 PM 有精力认真思考每道题。
+- **一次不要太多。** Claude 单次 ≤4 题；Codex 单次 ≤3 题（prefer 1）。
 - **问题要具体。** 不问"异常怎么处理"——问"用户选了券但下单时券刚好过期，系统应该怎么处理？"
 
 ## 重生成原则

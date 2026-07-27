@@ -1,34 +1,71 @@
 # prd-tech-review
 
-Claude Code Skill：对已完成的 PRD 做**技术审查 → 交互问答 → PRD 重生成**三阶段闭环。
+Agent Skill（Claude Code + Codex）：对已完成的 PRD 做**技术审查 → 交互问答 → PRD 重生成**三阶段闭环。
 
 ## 做什么
 
 1. **技术审查**：按 17 个维度审查 PRD + UI 原型 + UX / DFD / 状态机 / 流程图 / 时序图 / ER 图  
-2. **交互问答**：用 Claude Code 内置 **`AskUserQuestion`** 弹出可点选选择题（与 Plan 模式同类选择框）  
+2. **交互问答**：用点选 UI 收集 PM 决策（双端适配）  
 3. **PRD 重生成**：融合原始 PRD、审查结论与 PM 回答，输出开发可直接使用的完整 PRD  
+
+## 点选 UI 双端适配
+
+| 环境 | 工具 | UI |
+|------|------|-----|
+| **Claude Code** | `AskUserQuestion` | Plan 模式同类选择框 |
+| **Codex** | `request_user_input` | TUI 底部 tab 问卷（可键盘选择） |
+| 皆无 | Markdown 降级 | 文字 A/B/C |
+
+运行时自动选择：有 `request_user_input` 走 Codex，否则有 `AskUserQuestion` 走 Claude。
+
+### Codex 注意
+
+- 单次 1–3 题（prefer 1），每题 2–3 个选项  
+- `header` ≤ 12 字符；推荐项 label 后缀 ` (Recommended)`  
+- **不要**手写 Other 选项（客户端自动提供）  
+- 阻断题不要设 `autoResolutionMs`  
+- `codex exec` 非交互模式无此工具，会降级  
+
+可选：在 `~/.codex/config.toml` 确认未关闭实验工具：
+
+```toml
+[tools.experimental_request_user_input]
+enabled = true
+```
+
+（多数版本默认已开启。）
 
 ## 安装
 
 ### Claude Code
 
-将本仓库克隆到 skills 目录（目录名可自定义，但需含 `SKILL.md`）：
-
 ```bash
-# 用户级
 git clone git@github.com:zhiquanchi/prd-tech-review.git ~/.claude/skills/prd-tech-review
-
 # 或项目级
 git clone git@github.com:zhiquanchi/prd-tech-review.git .claude/skills/prd-tech-review
 ```
 
-重启 Claude Code 或新开会话后，在相关需求下会自动匹配；也可在对话中说明「用 prd-tech-review 审查这份 PRD」。
+### Codex
+
+```bash
+git clone git@github.com:zhiquanchi/prd-tech-review.git ~/.codex/skills/prd-tech-review
+# 或项目级
+git clone git@github.com:zhiquanchi/prd-tech-review.git .codex/skills/prd-tech-review
+```
+
+新开会话后，在「审阅 PRD / 检查能否开发」等描述下会自动匹配；也可点名 `prd-tech-review`。
+
+可在 `AGENTS.md` 加一句提高命中率：
+
+```markdown
+PRD 技术审查 / 需求缺口澄清 / 审查后重生成 PRD：使用 skill prd-tech-review。
+```
 
 ### 目录结构
 
 ```
 prd-tech-review/
-├── SKILL.md                 # Skill 主指令
+├── SKILL.md                 # Skill 主指令（含双端点选适配）
 ├── README.md
 └── references/              # 审查清单、问答指南、重生成指南、各图框架
     ├── review-checklist.md
@@ -51,12 +88,6 @@ prd-tech-review/
 | 业务流程图 | 逻辑怎么走 |
 | 时序图 | 谁先调谁 |
 | ER 图 | 数据怎么关联 |
-
-## 阶段 2 与选择框
-
-阶段 2 **强制**调用 `AskUserQuestion`，在 TUI/IDE 中出现可点选 UI，而不是纯 Markdown 的 A/B/C。
-
-若运行环境没有该工具，Skill 会降级为 Markdown 选择题并提示用户。
 
 ## 触发示例
 
