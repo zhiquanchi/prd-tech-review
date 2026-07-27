@@ -116,6 +116,8 @@ description: >
 - 推荐项 label 后缀 ` (Recommended)`。
 - 不要手写 Other；阻断题**不要**设 `autoResolutionMs`。
 - 非阻断可设 `autoResolutionMs`：60000–240000。
+- **点选工具可用性（重要）：** Codex 默认**只在 Plan 模式**注册 `request_user_input`。Default 模式需开启 feature `default_mode_request_user_input = true`（`~/.codex/config.toml` 的 `[features]`），否则工具不存在，只能 Markdown 降级。
+- 若 tool 列表里**没有** `request_user_input`：先尝试切换到 **Plan 模式**再 call；仍无才 Markdown 降级，并明确告诉用户「当前模式无点选工具，请开 Plan 或开启 default_mode_request_user_input」。
 - 仅 `codex exec` 等非交互模式无法 call 时，才降级并说明。
 
 ```

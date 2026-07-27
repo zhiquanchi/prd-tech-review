@@ -23,6 +23,7 @@
 | 推荐项第一 | Claude 可用 ✅；Codex label 后缀 ` (Recommended)` |
 | 不要手写 Other | 客户端自动提供 |
 | 降级 | **仅** tool 不存在或调用失败时用 Markdown |
+| Codex 无 RUI | 默认只在 **Plan** 有 `request_user_input`；Default 需 `features.default_mode_request_user_input = true`。无工具时先提示用户切 Plan / 开 feature，再 Markdown |
 
 ### Claude Code — `AskUserQuestion`
 

@@ -28,14 +28,25 @@ Agent Skill（Claude Code + Codex）：对已完成的 PRD 做**技术审查 →
 - 阻断题不要设 `autoResolutionMs`  
 - `codex exec` 非交互模式无此工具，会降级  
 
-可选：在 `~/.codex/config.toml` 确认未关闭实验工具：
+#### 点选 UI 不出现时（最常见）
+
+Codex **默认只在 Plan 模式**暴露 `request_user_input`。在 Default 模式会表现为：
+
+> 已启用 prd-tech-review … 当前会话没有可调用的点选控件，因此按降级规则以文本选项收集决策
+
+**修法二选一：**
+
+1. **开 Plan 模式**再跑阶段 2（`$prd-tech-review` / 审查问答）  
+2. **Default 模式也开放点选**——在 `~/.codex/config.toml`：
 
 ```toml
-[tools.experimental_request_user_input]
-enabled = true
+[features]
+default_mode_request_user_input = true
 ```
 
-（多数版本默认已开启。）
+然后**新开** Codex 会话（旧会话不会热加载 feature）。
+
+可用 `codex features list | rg default_mode_request` 确认该项为 `true`。
 
 ## 安装
 
