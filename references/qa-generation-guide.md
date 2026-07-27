@@ -79,7 +79,8 @@
         ↓
 按维度分组生成选择题
         ↓
-  AskUserQuestion 或 request_user_input 弹出选择框
+  【默认立刻】AskUserQuestion / request_user_input 弹出选择框
+  （不征求许可、不先输出 Markdown 选项）
         ↓
    PM 逐组点选
         ↓

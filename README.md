@@ -14,9 +14,11 @@ Agent Skill（Claude Code + Codex）：对已完成的 PRD 做**技术审查 →
 |------|------|-----|
 | **Claude Code** | `AskUserQuestion` | Plan 模式同类选择框 |
 | **Codex** | `request_user_input` | TUI 底部 tab 问卷（可键盘选择） |
-| 皆无 | Markdown 降级 | 文字 A/B/C |
+| 工具失败/真无 | Markdown 降级 | 文字 A/B/C |
 
-运行时自动选择：有 `request_user_input` 走 Codex，否则有 `AskUserQuestion` 走 Claude。
+**默认行为：直接触发点选 UI。** 审查报告交付后立刻 tool call，不征求「是否提问」、不先输出 Markdown A/B/C。
+
+运行时：有 `request_user_input` → Codex；否则 `AskUserQuestion` → Claude。
 
 ### Codex 注意
 
