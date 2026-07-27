@@ -4,24 +4,25 @@
 
 ---
 
-## 强制：点选 UI（Claude Code + Codex 双端）
+## 强制：默认直接触发点选 UI（Claude Code + Codex）
 
-阶段 2 **必须**调用当前环境的交互选择题工具，弹出可点选 UI。
+阶段 2 **默认路径 = 立刻 tool call 弹出点选 UI**。报告交付后不要停、不要问「要不要提问」，同一轮就调用工具。
 
-| 环境 | 工具名 | 单次题量 | 选项数 |
-|------|--------|----------|--------|
+| 环境 | 工具名（默认直接 call） | 单次题量 | 选项数 |
+|------|-------------------------|----------|--------|
 | Claude Code | `AskUserQuestion` | 1–4 | 2–4 |
 | Codex | `request_user_input` | 1–3（prefer 1） | 2–3 |
-| 皆无 | Markdown 降级 | ≤8 | 2–4 + 其他 |
+| 工具失败/真无 | Markdown 降级（非默认） | ≤8 | 2–4 |
 
 | 规则 | 说明 |
 |------|------|
-| 先判工具再调用 | 有 `request_user_input` → Codex；否则有 `AskUserQuestion` → Claude；皆无 → 降级 |
-| 禁止纯文字 A/B/C | 有点选工具时禁止 Markdown 列表代替 |
+| **默认直接 call** | 有 `request_user_input` 或 `AskUserQuestion` 就立刻调用，先于任何长文 |
+| 禁止征求许可 | 禁止「是否进入问答」「需要我提问吗」「回复继续开始」 |
+| 禁止先写 Markdown 选项 | 有工具时禁止 A/B/C 文字列表代替选择框 |
 | 等答案再继续 | 未收到点选结果前不得进入阶段 3 |
-| 推荐项第一 | `options[0]` 为技术推荐；Claude 可用 ✅；Codex label 后缀 ` (Recommended)` |
-| 不要手写 Other | 两端客户端都会提供自定义输入 |
-| 降级 | 仅当环境无点选工具时用文末 Markdown，并告知 PM |
+| 推荐项第一 | Claude 可用 ✅；Codex label 后缀 ` (Recommended)` |
+| 不要手写 Other | 客户端自动提供 |
+| 降级 | **仅** tool 不存在或调用失败时用 Markdown |
 
 ### Claude Code — `AskUserQuestion`
 
