@@ -1,56 +1,44 @@
 # prd-tech-review
 
-Agent Skill（Claude Code + Codex）：对已完成的 PRD 做**技术审查 → 交互问答 → PRD 重生成与验证图生成**三阶段闭环。
+Agent Skill（Claude Code / Codex / Grok）：对已完成的 PRD 做**技术审查 → 交互问答 → PRD 重生成与验证图生成**三阶段闭环。
 
-核心分工：**PM 做决策，AI 画图。** 图表不要求 PM 提供——AI 从 PRD 推导模型，不确定处变成选择题，PM 确认后自动生成验证图。
+核心分工：**PM 做决策，AI 画图。** 图表不要求 PM 提供——AI 从 PRD 推导模型，不确定处变成选择题，PM 确认后按需生成验证图。
 
 ## 做什么
 
-1. **技术审查**：按 17 个维度审查 PRD；PM 已有的 UI 原型 / UX / DFD / 状态机 / 流程图 / 时序图 / ER 图有则一并审查，没有不扣分  
-2. **交互问答**：用点选 UI 收集 PM 决策（双端适配）  
-3. **PRD 重生成 + 验证图**：融合原始 PRD、审查结论与 PM 回答，输出开发可直接使用的完整 PRD，并按需生成状态机 / 流程 / 时序 / ER 等验证图，供 PM 可视化校验 PRD  
+1. **技术审查**：D1–D10 始终审 PRD；D11 有原型/设计稿才审；D12–D17 有图审图，无图则文字推导（**缺图不定级**）
+2. **交互问答**：点选 UI 收集决策（多端工具探测）；默认 ≤15 题
+3. **重生成 + 验证图**：融合原始 PRD、审查结论与 PM 回答，输出可开发 PRD 与状态机/流程/时序/ER 等验证图
 
-## 点选 UI 双端适配
+## 点选 UI 多端适配
 
-| 环境 | 工具 | UI |
-|------|------|-----|
-| **Claude Code** | `AskUserQuestion` | Plan 模式同类选择框 |
-| **Codex** | `request_user_input` | TUI 底部 tab 问卷（可键盘选择） |
-| 工具失败/真无 | Markdown 降级 | 文字 A/B/C |
+| 环境 | 工具 | 单次题量 |
+|------|------|----------|
+| **Codex** | `request_user_input` | 1–3（prefer 1） |
+| **Claude Code** | `AskUserQuestion` | 1–4 |
+| **Grok** | `ask_user_question` | 1–4 |
+| 工具失败/真无 | Markdown 降级 | ≤8 |
+
+**探测顺序：** `request_user_input` → `AskUserQuestion` / `ask_user_question` → 其它同构工具 → Markdown。
 
 **默认行为：直接触发点选 UI。** 审查报告交付后立刻 tool call，不征求「是否提问」、不先输出 Markdown A/B/C。
 
-运行时：有 `request_user_input` → Codex；否则 `AskUserQuestion` → Claude。
-
 ### Codex 注意
 
-- 单次 1–3 题（prefer 1），每题 2–3 个选项  
-- `header` ≤ 12 字符；推荐项 label 后缀 ` (Recommended)`  
-- **不要**手写 Other 选项（客户端自动提供）  
-- 阻断题不要设 `autoResolutionMs`  
-- `codex exec` 非交互模式无此工具，会降级  
-
-#### 点选 UI 不出现时（最常见）
-
-Codex **默认只在 Plan 模式**暴露 `request_user_input`。在 Default 模式会表现为：
-
-> 已启用 prd-tech-review … 当前会话没有可调用的点选控件，因此按降级规则以文本选项收集决策
-
-**修法二选一：**
-
-1. **开 Plan 模式**再跑阶段 2（`$prd-tech-review` / 审查问答）  
-2. **Default 模式也开放点选**——在 `~/.codex/config.toml`：
+- `header` ≤ 12 字符；推荐项 label 后缀 ` (Recommended)`
+- **不要**手写 Other；阻断题不要设 `autoResolutionMs`
+- 默认只在 **Plan 模式**暴露 `request_user_input`。Default 模式在 `~/.codex/config.toml`：
 
 ```toml
 [features]
 default_mode_request_user_input = true
 ```
 
-然后**新开** Codex 会话（旧会话不会热加载 feature）。
-
-可用 `codex features list | rg default_mode_request` 确认该项为 `true`。
+然后**新开**会话。可用 `codex features list | rg default_mode_request` 确认。
 
 ## 安装
+
+仓库为**单源**。多 Agent 目录请 clone 同一仓库或使用符号链接，避免副本漂移。
 
 ### Claude Code
 
@@ -64,8 +52,15 @@ git clone git@github.com:zhiquanchi/prd-tech-review.git .claude/skills/prd-tech-
 
 ```bash
 git clone git@github.com:zhiquanchi/prd-tech-review.git ~/.codex/skills/prd-tech-review
+# 或项目级 .codex/skills/prd-tech-review
+```
+
+### Grok
+
+```bash
+git clone git@github.com:zhiquanchi/prd-tech-review.git ~/.grok/skills/prd-tech-review
 # 或项目级
-git clone git@github.com:zhiquanchi/prd-tech-review.git .codex/skills/prd-tech-review
+git clone git@github.com:zhiquanchi/prd-tech-review.git .grok/skills/prd-tech-review
 ```
 
 新开会话后，在「审阅 PRD / 检查能否开发」等描述下会自动匹配；也可点名 `prd-tech-review`。
@@ -76,35 +71,42 @@ git clone git@github.com:zhiquanchi/prd-tech-review.git .codex/skills/prd-tech-r
 PRD 技术审查 / 需求缺口澄清 / 审查后重生成 PRD：使用 skill prd-tech-review。
 ```
 
+### 可选依赖
+
+| Skill | 作用 | 未安装时 |
+|-------|------|----------|
+| `html-report` | 报告 / 重生成 HTML | 直接写 HTML 文件或 Markdown + Mermaid |
+| `doc-writing-guide` | 文档写作参考 | 忽略即可 |
+
 ### 目录结构
 
 ```
 prd-tech-review/
-├── SKILL.md                 # Skill 主指令（含双端点选适配）
+├── SKILL.md                 # 主指令（强制行为 + 索引）
 ├── README.md
-└── references/              # 审查清单、问答指南、重生成指南、各图框架
+└── references/
     ├── review-checklist.md
     ├── qa-generation-guide.md
     ├── prd-regeneration-guide.md
-    └── ...
+    ├── functional-module-framework.md
+    ├── ui-prototype-framework.md
+    ├── eval-notes.md
+    └── …各图审查 framework
 ```
 
 ## 输入要求
 
-只有 PRD 是必需的，其余产物有则审、无则跳过（缺图不定级、不追问）：
-
 | 输入 | 必需？ | 作用 |
 |------|--------|------|
 | PRD 文档 | **必需** | 做什么 |
-| UI 原型（Ant Design） | 可选，有则审 | 怎么交互 |
-| UX 流程图 | 可选，有则审 | 用户路径 |
-| DFD | 可选，有则审 | 数据怎么流 |
-| 状态机图 | 可选，有则审 | 状态怎么变 |
-| 业务流程图 | 可选，有则审 | 逻辑怎么走 |
-| 时序图 | 可选，有则审 | 谁先调谁 |
-| ER 图 | 可选，有则审 | 数据怎么关联 |
+| UI 原型 / 设计稿 | 可选 | 怎么交互（D11，形态分级） |
+| UX / DFD / 状态机 / 流程 / 时序 / ER | 可选 | 有则审图；无则推导后生成验证图 |
 
-未提供的图**不算缺失**：AI 会从 PRD 文字推导这些图背后的模型，推导中不确定的部分变成阶段 2 的选择题，PM 确认后在阶段 3 自动生成对应的验证图（Mermaid），作为 PRD 的可视化校验。
+## 题量
+
+- 默认只问阻断 + 重要；建议级不进问卷  
+- 硬上限 **≤ 15 题**（深挖模式 ≤ 25）  
+- 超出则合并或行业默认 + ❓，禁止静默丢弃  
 
 ## 触发示例
 
@@ -113,6 +115,10 @@ prd-tech-review/
 - 找出需求缺口或风险  
 - 审查后引导产品补充细节  
 - 根据审查结果重新生成 PRD  
+
+## 轻量回归
+
+见 `references/eval-notes.md`。
 
 ## License
 
