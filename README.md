@@ -1,27 +1,36 @@
 # prd-tech-review
 
-Agent Skill（Claude Code / Codex / Grok）：对已完成的 PRD 做**技术审查 → 交互问答 → PRD 重生成与验证图生成**三阶段闭环。
+Agent Skill（Claude Code / Codex / Grok）：对**已完成**的 PRD 做**技术审查 → 交互问答 → PRD 重生成与验证图生成**闭环。
 
 核心分工：**PM 做决策，AI 画图。** 图表不要求 PM 提供——AI 从 PRD 推导模型，不确定处变成选择题，PM 确认后按需生成验证图。
+
+**不是**从 0 写 PRD / 出原型的工具；那类需求用 `prd-writer`（若已安装）。
 
 ## 做什么
 
 1. **技术审查**：D1–D10 始终审 PRD；D11 有原型/设计稿才审；D12–D17 有图审图，无图则文字推导（**缺图不定级**）
-2. **交互问答**：点选 UI 收集决策（多端工具探测）；默认 ≤15 题
-3. **重生成 + 验证图**：融合原始 PRD、审查结论与 PM 回答，输出可开发 PRD 与状态机/流程/时序/ER 等验证图
+2. **交互问答**（完整模式）：点选 UI 收集决策；默认 ≤15 题；同型缺口合并
+3. **重生成 + 验证图**：融合原始 PRD、审查结论与 PM 回答；默认优先 1–2 张关键验证图
+
+### 运行模式
+
+| 模式 | 触发 | 行为 |
+|------|------|------|
+| **完整**（默认） | 审查 / 能否开发 / 补充 / 重生成 | 阶段 1 → 同一轮点选 → 重生成 |
+| **轻量** | 「只审不改」「只要报告」「先别问我」 | **仅阶段 1 报告**，不自动问答 |
 
 ## 点选 UI 多端适配
 
 | 环境 | 工具 | 单次题量 |
 |------|------|----------|
-| **Codex** | `request_user_input` | 1–3（prefer 1） |
-| **Claude Code** | `AskUserQuestion` | 1–4 |
-| **Grok** | `ask_user_question` | 1–4 |
+| **Codex** | `request_user_input` | 1–3（prefer 1 仅极重题） |
+| **Claude Code** | `AskUserQuestion` | 1–4（尽量打满） |
+| **Grok** | `ask_user_question` | 1–4（尽量打满） |
 | 工具失败/真无 | Markdown 降级 | ≤8 |
 
 **探测顺序：** `request_user_input` → `AskUserQuestion` / `ask_user_question` → 其它同构工具 → Markdown。
 
-**默认行为：直接触发点选 UI。** 审查报告交付后立刻 tool call，不征求「是否提问」、不先输出 Markdown A/B/C。
+**默认行为（完整模式）：直接触发点选 UI。** 审查报告交付后立刻 tool call，不征求「是否提问」、不先输出 Markdown A/B/C。
 
 ### Codex 注意
 
@@ -69,12 +78,14 @@ git clone git@github.com:zhiquanchi/prd-tech-review.git .grok/skills/prd-tech-re
 
 ```markdown
 PRD 技术审查 / 需求缺口澄清 / 审查后重生成 PRD：使用 skill prd-tech-review。
+从 0 写 PRD / 原型：使用 skill prd-writer（若有）。
 ```
 
 ### 可选依赖
 
 | Skill | 作用 | 未安装时 |
 |-------|------|----------|
+| `prd-writer` | 从 0 写 PRD/原型 | 用户要「写需求」时勿硬套本 skill |
 | `html-report` | 报告 / 重生成 HTML | 直接写 HTML 文件或 Markdown + Mermaid |
 | `doc-writing-guide` | 文档写作参考 | 忽略即可 |
 
@@ -82,7 +93,7 @@ PRD 技术审查 / 需求缺口澄清 / 审查后重生成 PRD：使用 skill pr
 
 ```
 prd-tech-review/
-├── SKILL.md                 # 主指令（强制行为 + 索引）
+├── SKILL.md                 # 主指令（强制行为 + 加载预算 + 模式）
 ├── README.md
 └── references/
     ├── review-checklist.md
@@ -91,6 +102,7 @@ prd-tech-review/
     ├── functional-module-framework.md
     ├── ui-prototype-framework.md
     ├── eval-notes.md
+    ├── fixtures/            # 回归用迷你 PRD
     └── …各图审查 framework
 ```
 
@@ -102,23 +114,26 @@ prd-tech-review/
 | UI 原型 / 设计稿 | 可选 | 怎么交互（D11，形态分级） |
 | UX / DFD / 状态机 / 流程 / 时序 / ER | 可选 | 有则审图；无则推导后生成验证图 |
 
-## 题量
+## 题量与定级（摘要）
 
 - 默认只问阻断 + 重要；建议级不进问卷  
 - 硬上限 **≤ 15 题**（深挖模式 ≤ 25）  
-- 超出则合并或行业默认 + ❓，禁止静默丢弃  
+- 同型缺口合并；超出则行业默认 + ❓，禁止静默丢弃  
+- **纯结构缺失**（无 OOS/验收章节）默认 **重要**，不单独因此整单 🔴  
+- 点选 options **禁止**手写 Other  
 
 ## 触发示例
 
 - 审阅 / 审查 PRD  
 - 检查 PRD 是否可以开始开发  
 - 找出需求缺口或风险  
+- 只要报告、先别提问（轻量）  
 - 审查后引导产品补充细节  
 - 根据审查结果重新生成 PRD  
 
 ## 轻量回归
 
-见 `references/eval-notes.md`。
+见 `references/eval-notes.md` 与 `references/fixtures/`。
 
 ## License
 
