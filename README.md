@@ -2,14 +2,15 @@
 
 Agent Skill 仓库（Claude Code / Codex / Grok / Qwen Code 等）：对**已完成**的 PRD 做**技术审查 → 交互问答 → PRD 重生成与验证图生成**闭环。
 
-本仓库是**单源仓库，含两个可独立安装的 skill**：
+本仓库是**单源仓库，含三个可独立安装的 skill**：
 
 | 目录 | name | 职责 |
 |------|------|------|
 | `prd-review/` | `prd-review` | 技术审查（D1–D17）+ 交互问答（点选 UI）+ 轻量模式；产出审查报告与 PM 决策记录 |
 | `prd-regeneration/` | `prd-regeneration` | 融合原始 PRD + 审查报告 + PM 回答记录 → 重生成可开发 PRD + 按需验证图 |
+| `connect/` | `connect` | 安装器：把 prd-review / prd-regeneration 以软链安装到本机各 Agent skills 目录（list / uninstall / --path） |
 
-**协作闭环：** `prd-review` 完成审查与决策收集后，将交接物（原始 PRD + 审查报告 + PM 回答记录）交给 `prd-regeneration` 重生成。也可单独使用：只审不改（轻量模式）、或拿已有审查结果直接重生成。
+**协作闭环：** `prd-review` 完成审查与决策收集后，将交接物（原始 PRD + 审查报告 + PM 回答记录）交给 `prd-regeneration` 重生成。也可单独使用：只审不改（轻量模式）、或拿已有审查结果直接重生成。**`connect` 只负责安装，不参与审查流程。**
 
 核心分工：**PM 做决策，AI 画图。** 图表不要求 PM 提供——AI 从 PRD 推导模型，不确定处变成选择题，PM 确认后按需生成验证图。
 
@@ -62,7 +63,7 @@ default_mode_request_user_input = true
 
 ## 安装
 
-仓库为**单源**。多 Agent 目录请 clone 同一仓库后符号链接所需 skill，避免副本漂移。两个 skill 可只装其一：
+仓库为**单源**。多 Agent 目录请 clone 同一仓库后符号链接所需 skill，避免副本漂移。三个 skill 可只装其一：
 
 ```bash
 # 1. clone 单源到任意位置
@@ -71,17 +72,21 @@ git clone git@github.com:zhiquanchi/prd-tech-review.git ~/.skills-src/prd-tech-r
 # 2. 链接需要的 skill（可只链一个）；以下为 Claude Code 示例
 ln -s ~/.skills-src/prd-tech-review/prd-review ~/.claude/skills/prd-review
 ln -s ~/.skills-src/prd-tech-review/prd-regeneration ~/.claude/skills/prd-regeneration
-# Codex：目标目录换 ~/.codex/skills/；Grok：~/.grok/skills/
+ln -s ~/.skills-src/prd-tech-review/connect ~/.claude/skills/connect
+# Codex：目标目录换 ~/.codex/skills/；Qwen Code：~/.qwen/skills/；Grok：~/.grok/skills/
 # 项目级安装：目标目录换 .claude/skills/ 等
 ```
 
-新开会话后，在「审阅 PRD / 检查能否开发 / 重生成 PRD」等描述下会自动匹配；也可点名 `prd-review` / `prd-regeneration`。
+新开会话后，在「审阅 PRD / 检查能否开发 / 重生成 PRD」等描述下会自动匹配；也可点名 `prd-review` / `prd-regeneration` / `connect`。
+
+**connect 自举：** 把 `connect/` 手动软链到任一 agent 后，其余 skill 的安装/卸载/预检可交给 `connect`（`connect` → 全量安装；`connect list` → 预检；`connect uninstall` → 卸载）。
 
 可在 `AGENTS.md` 加一句提高命中率：
 
 ```markdown
 PRD 技术审查 / 需求缺口澄清：使用 skill prd-review。
 审查后重生成 PRD / 补生成验证图：使用 skill prd-regeneration。
+安装/卸载本仓库 skill 到本机 agent：使用 skill connect。
 从 0 写 PRD / 原型：使用 skill prd-writer（若有）。
 ```
 
@@ -111,6 +116,12 @@ PRD 技术审查 / 需求缺口澄清：使用 skill prd-review。
 - 根据审查结果重新生成 PRD
 - 按审查结论修订 PRD
 - 为审查过的 PRD 补生成验证图
+
+### connect
+- 把 prd-review / prd-regeneration 安装到本机 agent
+- 列出支持安装的 agent 与状态（connect list）
+- 从本机 agent 卸载（connect uninstall）
+- 安装到指定项目 skills 目录（connect --path .claude/skills）
 
 ## 回归
 
