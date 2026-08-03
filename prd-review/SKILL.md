@@ -22,7 +22,7 @@ description: >
 阶段 3 重生成   → 由配套 skill prd-regeneration 完成（本 skill 不执行）
 ```
 
-**核心分工：PM 做决策，AI 画图。** 图不要求 PM 提供；缺图不定级。AI 从文字推导模型，不确定处变成阶段 2 选择题，确认后交接给 prd-regeneration 生成验证图。
+**核心分工：PM 做决策，AI 画图。** 图不要求 PM 提供；缺图不定级、不扣分——PRD 用文字/表格/规则表覆盖各图关注点即等价。AI 从文字/表格核对各图关注点（见各 framework 文首「本图关注点」），不确定处变成阶段 2 选择题，确认后交接给 prd-regeneration 生成验证图。
 
 ## 运行模式
 
@@ -38,7 +38,7 @@ description: >
 | 输入 | 必需？ | 说明 |
 |------|--------|------|
 | PRD（HTML/MD/粘贴/链接） | **必需** | 没有则向用户索取 |
-| UI 原型 / 设计稿、UX/DFD/状态机/流程/时序/ER | 可选 | **有则审；缺图本身不定级** |
+| UI 原型 / 设计稿、UX/DFD/状态机/流程/时序/ER | 可选 | **有则严格审；缺图不扣分——文字/表格覆盖该图关注点即等价** |
 
 ## 维度执行语义（强制，禁止简化错）
 
@@ -46,7 +46,7 @@ description: >
 |------|--------|--------|
 | **D1–D10** | 始终审 PRD 文字 | 始终审 |
 | **D11** | 按形态分级审（见 `references/ui-prototype-framework.md`） | **跳过、不定级** |
-| **D12–D17** | 审图 + 与 PRD 一致性 | **不因缺图定级**；**必须**文字模型推导；不确定 → 本维记问题进阶段 2；确定部分作为交接素材 |
+| **D12–D17** | 有图：按对应 framework **严格**审图 + 与 PRD 一致性 | **不因缺图定级/扣分**——按该维「关注点」核对 PRD 文字/表格/规则表覆盖（见对应 framework 文首「本图关注点」），覆盖即按关注点覆盖度打分；不确定 → 本维记问题进阶段 2；确定部分作为交接素材 |
 
 详细问题与反模式：`references/review-checklist.md`。各图标准：对应 `references/*-framework.md`。
 
@@ -60,7 +60,7 @@ description: >
 
 | 阶段 | 必读 | 条件读 |
 |------|------|--------|
-| 1 | `references/review-checklist.md`（D1–D10 + 文末评分指南）；`references/functional-module-framework.md`（D2 对照） | 有原型/设计稿 → `references/ui-prototype-framework.md`；**有某类图** → 对应 `references/*-framework.md`；**无图**时 D12–D17 只读 checklist 中该维「文字推导」段，**不**预读全部图 framework |
+| 1 | `references/review-checklist.md`（D1–D10 + 文末评分指南）；`references/functional-module-framework.md`（D2 对照） | 有原型/设计稿 → `references/ui-prototype-framework.md`；**有某类图** → 对应 `references/*-framework.md`；**无图**时 D12–D17 只读 checklist 中该维「关注点」段 + 对应 framework 文首「本图关注点」，**不**预读全部图 framework |
 | 2 | `references/qa-generation-guide.md` | — |
 | 任意 | — | `references/eval-notes.md` / `references/fixtures/` 仅改 skill 或回归时读 |
 
@@ -69,7 +69,7 @@ PRD 与用户附件优先于 references；references 冲突时以 SKILL.md 本�
 ## 阶段 1：技术审查
 
 1. 完整阅读 PRD；若有产物则完整阅读。
-2. **模型推导（无论是否有图）：** 有状态实体 / 核心流程 / 前后端交互 / 多实体关系 / 核心用户任务 → 推导隐含模型。能唯一确定的记为交接素材；多种合理解读 → 审查问题（归维见上）。
+2. **模型推导（无论是否有图）：** 有状态实体 / 核心流程 / 前后端交互 / 多实体关系 / 核心用户任务 → 推导隐含模型；无图时按对应 framework 文首「本图关注点」核对文字/表格/规则表覆盖（覆盖不扣分，缺口/歧义记问题）。能唯一确定的记为交接素材；多种合理解读 → 审查问题（归维见上）。
 3. 按 D1–D10 始终审；D11 / D12–D17 按上表。
 4. 每个问题：定级（阻断/重要/建议）+ 引用原文 + 技术风险 + 具体改法。
 5. 输出报告（有 `html-report` skill 则用；否则 HTML 文件或 Markdown），**结构固定**（报告是交接物，字段必须完整）：
@@ -79,7 +79,7 @@ PRD 与用户附件优先于 references；references 冲突时以 SKILL.md 本�
 ## 一、结论（🔴 阻断 / ⚠️ 需修改 / ✅ 可开发 + 一句话理由；以 D1–D10 为准）
 ## 二、问题表（编号 | 维度 | 级别 | 原文引用 | 技术风险 | 具体改法）
 ## 三、详述（阻断/重要问题逐条展开，附原文与改法示例）
-## 四、维度分（D1–D17；未执行维度标注「跳过（无原型）/ 无图，基于文字推导」）
+## 四、维度分（D1–D17；未执行维度标注「跳过（无原型）/ 无图，按关注点覆盖度」）
 ## 五、未澄清项（超题量或未确认的行业默认，禁止静默丢弃）
 ## 六、交接声明（完整模式：「下一步：调用 prd-regeneration 重生成」；轻量模式：「仅报告，未启动问答」）
 ```
@@ -151,7 +151,7 @@ PRD 与用户附件优先于 references；references 冲突时以 SKILL.md 本�
 
 - 引用原文；说明技术风险；给可执行改法。
 - 你是开发，不是校对；假设 PM 已尽力——用「缺失」多于「错误」。
-- 已有产物有则审；没提供不定级、不催补图。
+- 已有产物有则严格审；没提供不定级、不扣分、不催补图（文字/表格覆盖该图关注点即等价）。
 
 ## 配套文件
 
@@ -160,7 +160,7 @@ PRD 与用户附件优先于 references；references 冲突时以 SKILL.md 本�
 | `references/review-checklist.md` | 1：17 维问题、反模式、评分与结论 |
 | `references/functional-module-framework.md` | 1：模块完整性（⑦⑧⑪ 两级定级；② 可选） |
 | `references/ui-prototype-framework.md` | 1：D11 形态分级（有则审） |
-| `references/ux-review-framework.md` 等 6 个图框架 | 1 有图才审 |
+| `references/ux-review-framework.md` 等 6 个图框架 | 1 有图严格审；无图时读文首「本图关注点」 |
 | `references/qa-generation-guide.md` | 2：点选、去重、题量、模板、回答记录 |
 | `references/eval-notes.md` | 回归自检（可选） |
 | `references/fixtures/` | 迷你 PRD 与期望要点（可选） |
